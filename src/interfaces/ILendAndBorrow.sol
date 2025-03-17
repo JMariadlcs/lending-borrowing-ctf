@@ -9,10 +9,11 @@ contract ILendAndBorrow {
     struct Pool {
         uint256 minLend;
         uint256 maxLend;
-        uint256 maxTotalAmount;
+        uint256 maxTotalLendingAmount;
         uint256 totalLend;
         uint256 totalBorrow;
         address collateralToken;
+        uint256 collateralizationRatio;
         bool isActive;
     }
 
