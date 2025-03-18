@@ -36,6 +36,30 @@ contract LendAndBorrow is Ownable, ILendAndBorrow, Pausable, ReentrancyGuard {
     }
 
      /**
+    * @notice Allows admin to add new pool
+    * @param poolDetails pool to be added
+    */
+    function createPool(Pool memory poolDetails) public onlyOwner {
+        require(poolDetails.minLend >= MIN_LEND, "Incorrect minimum lend");
+        require(poolDetails.maxLend <= MAX_LEND, "Incorrect maximum lend");
+
+        activePools[poolCounter] = Pool({
+            minLend: poolDetails.minLend,
+            maxLend: poolDetails.maxLend,
+            maxTotalLendingAmount: poolDetails.maxTotalLendingAmount,
+            totalLend: 0,
+            totalBorrow: 0,
+            collateralToken: poolDetails.collateralToken,
+            collateralizationRatio: poolDetails.collateralizationRatio,
+            isActive: true
+        });
+
+        poolCounter++;
+
+        emit CreatePool(poolCounter - 1);
+    }
+
+     /**
     * @notice User can deposit lendingToken and earn intereset
     */
     function lend(uint256 amount, uint256 pool) public whenNotPaused nonReentrant {
