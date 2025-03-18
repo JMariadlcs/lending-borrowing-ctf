@@ -35,6 +35,22 @@ contract LendAndBorrow is Ownable, ILendAndBorrow, Pausable, ReentrancyGuard {
         oracle = oracle_;
     }
 
+     /**
+    * @notice User can deposit lendingToken and earn intereset
+    */
+    function lend(uint256 amount, uint256 pool) public whenNotPaused nonReentrant {
+        Pool storage requestedPool = activePools[pool];
+        require(requestedPool.totalLend + amount <= requestedPool.maxTotalLendingAmount, "Pool is full");
+        require(amount >= requestedPool.minLend, "Incorrect minimum lend");
+        require(amount <= requestedPool.maxLend, "Incorrect maximum lend");
+
+        IERC20(lendingBorrowToken).safeTransferFrom(msg.sender, address(this), amount);
+        lendings[msg.sender] = amount;
+        requestedPool.totalLend += amount;
+
+        emit Lended(pool, msg.sender, amount);
+    }
+
     function borrow(uint256 pool, uint256 borrowAmount, uint256 collateralAmount, address collateralToken) public whenNotPaused nonReentrant {
         uint256 neededCollateralAmount = getNeededCollateralAmount(borrowAmount, pool); 
 
