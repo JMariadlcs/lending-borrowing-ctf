@@ -22,7 +22,7 @@ contract LendAndBorrow is Ownable, ILendAndBorrow, Pausable, ReentrancyGuard {
     mapping(address => uint256) public lendings;
     mapping(address => uint256) public borrows;
     mapping(address => uint256) public borrowTimestamps; 
-    mapping(address => mapping(uint256 => uint256)) collateralAmountInPool;
+    mapping(address => mapping(uint256 => uint256)) public collateralAmountInPool;
 
     event CreatePool(uint256 poolId);
     event Lended(uint256 pool, address user, uint256 amount);
