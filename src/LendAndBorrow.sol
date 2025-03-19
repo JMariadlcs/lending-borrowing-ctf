@@ -89,25 +89,33 @@ contract LendAndBorrow is Ownable, ILendAndBorrow, Pausable, ReentrancyGuard {
         emit Borrowed(pool, borrowAmount, collateralAmount, collateralToken);
     }
 
-    function getAccruedFee(address borrower) public view returns (uint256) {
-        if (borrows[borrower] == 0) return 0;
-        
-        uint256 timeElapsed = block.timestamp - borrowTimestamps[borrower];
-        return (borrows[borrower] * borrowRatePerSecond * timeElapsed) / 1e18;
+
+    function modifyExistingPosition(uint256 pool, uint256 collateralChange, bool isAdding) public whenNotPaused nonReentrant {
+        Pool storage requestedPool = activePools[pool];
+        require(requestedPool.isActive, "Pool is not active");
+
+        uint256 borrowedAmount = borrows[msg.sender];
+        require(borrowedAmount > 0, "No active loan");
+
+        uint256 currentCollateral = collateralAmountInPool[msg.sender][pool];
+        require(currentCollateral > 0, "No collateral deposited");
+
+        address collateralToken = requestedPool.collateralToken;
+
+        if (isAdding) {
+            // User wants to add more collateral
+            IERC20(collateralToken).safeTransferFrom(msg.sender, address(this), collateralChange);
+            collateralAmountInPool[msg.sender][pool] += collateralChange;
+        } else {
+            // User wants to remove collateral
+            require(collateralChange <= currentCollateral, "Cannot withdraw more than deposited");
+
+            // Transfer collateral back to the user
+            IERC20(collateralToken).safeTransfer(msg.sender, collateralChange);
+            collateralAmountInPool[msg.sender][pool] -= collateralChange;
+        }
     }
 
-    function getNeededCollateralAmount(uint256 borrowAmount, uint256 pool) public returns (uint256) {
-        Pool memory requestedPool = activePools[pool];
-        address poolCollateralToken = requestedPool.collateralToken;
-        
-        uint256 collateralTokenPrice = IOracle(oracle).getPrice(poolCollateralToken);
-        require(collateralTokenPrice > 0, "Invalid collateral price");
-
-        uint256 accruedFee = getAccruedFee(msg.sender);
-        uint256 totalDebt = borrowAmount + accruedFee;
-
-        return (totalDebt * requestedPool.collateralizationRatio * 1e18) / collateralTokenPrice;
-    }
 
     function repay(uint256 amount, uint256 pool) public whenNotPaused nonReentrant {
         require(amount > 0, "Repayment amount must be greater than zero");
@@ -178,6 +186,26 @@ contract LendAndBorrow is Ownable, ILendAndBorrow, Pausable, ReentrancyGuard {
         collateralAmountInPool[borrower][pool] = 0;
 
         emit Liquidated(borrower, pool, totalSeizableCollateral, msg.sender);
+    }
+
+    function getAccruedFee(address borrower) public view returns (uint256) {
+        if (borrows[borrower] == 0) return 0;
+        
+        uint256 timeElapsed = block.timestamp - borrowTimestamps[borrower];
+        return (borrows[borrower] * borrowRatePerSecond * timeElapsed) / 1e18;
+    }
+
+    function getNeededCollateralAmount(uint256 borrowAmount, uint256 pool) public returns (uint256) {
+        Pool memory requestedPool = activePools[pool];
+        address poolCollateralToken = requestedPool.collateralToken;
+        
+        uint256 collateralTokenPrice = IOracle(oracle).getPrice(poolCollateralToken);
+        require(collateralTokenPrice > 0, "Invalid collateral price");
+
+        uint256 accruedFee = getAccruedFee(msg.sender);
+        uint256 totalDebt = borrowAmount + accruedFee;
+
+        return (totalDebt * requestedPool.collateralizationRatio * 1e18) / collateralTokenPrice;
     }
 
     function pause() external onlyOwner {
